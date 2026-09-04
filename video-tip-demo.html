@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>视频打赏 · 完整交互 Demo</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#121214;--bg2:#1a1a1e;--bg3:#222228;--border:#2a2a30;
+  --text:#e8e8ec;--text2:#999;--text3:#666;
+  --accent:#f5a623;--green:#1d9e75;--purple:#7F77DD;--coral:#D85A30;--pink:#D4537E;
+  --radius:12px;--radius-lg:16px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;}
+
+/* ===== Layout ===== */
+.app{max-width:1200px;margin:0 auto;padding:16px;display:flex;gap:20px;align-items:flex-start;}
+.main{flex:1;min-width:0;}
+.sidebar{width:300px;flex-shrink:0;display:none;}@media(min-width:900px){.sidebar{display:block;}}
+
+/* ===== Header ===== */
+.header{display:flex;align-items:center;justify-content:space-between;padding:10px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;}
+.header-left{display:flex;align-items:center;gap:16px;}
+.logo{font-size:18px;font-weight:700;color:var(--text);letter-spacing:2px;}
+.search{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 14px;width:280px;font-size:13px;color:var(--text);outline:none;}
+.search::placeholder{color:var(--text3);}
+.header-right{display:flex;align-items:center;gap:16px;font-size:13px;}
+.h-btn{color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:4px;transition:color .15s;}
+.h-btn:hover{color:var(--text);}
+.points-pill{background:var(--bg3);padding:4px 12px;border-radius:14px;font-size:12px;display:flex;align-items:center;gap:4px;}
+.points-pill .num{color:var(--accent);font-weight:600;}
+
+/* ===== Video Player ===== */
+.player-wrap{position:relative;background:#000;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;aspect-ratio:16/9;}
+.video-poster{width:100%;height:100%;object-fit:cover;display:block;}
+.play-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);cursor:pointer;transition:background .2s;}
+.play-overlay:hover{background:rgba(0,0,0,.35);}
+.play-btn{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .2s;}
+.play-btn:hover{transform:scale(1.08);}
+.player-controls{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.75));padding:12px 16px;display:flex;align-items:center;gap:12px;}
+.ctrl-btn{background:none;border:none;color:#fff;cursor:pointer;padding:4px;opacity:.85;transition:opacity .15s;}
+.ctrl-btn:hover{opacity:1;}
+.progress-bar{flex:1;height:4px;background:rgba(255,255,255,.2);border-radius:2px;position:relative;cursor:pointer;}
+.progress-fill{position:absolute;left:0;top:0;height:100%;background:var(--accent);border-radius:2px;width:8%;}
+.time-label{font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;}
+.quality-tag{font-size:11px;color:rgba(255,255,255,.7);background:rgba(255,255,255,.1);padding:2px 8px;border-radius:4px;}
+
+/* Success Toast on player */
+.player-toast{position:absolute;top:16px;left:50%;transform:translateX(-50%) translateY(-20px);opacity:0;pointer-events:none;transition:all .4s cubic-bezier(.4,0,.2,1);z-index:10;}
+.player-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.pt-inner{background:rgba(29,158,117,.92);backdrop-filter:blur(8px);border-radius:10px;padding:10px 22px;color:#fff;font-size:13px;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.4);white-space:nowrap;}
+
+/* ===== Video Info ===== */
+.video-info{margin-bottom:16px;}
+.v-title{font-size:18px;font-weight:600;line-height:1.4;margin-bottom:6px;}
+.v-meta{font-size:12px;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap;}
+.author-row{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.author{display:flex;align-items:center;gap:10px;}
+.avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--bg3);}
+.author-name{font-size:14px;font-weight:500;}
+.author-stats{font-size:11px;color:var(--text3);}
+.action-row{display:flex;align-items:center;gap:8px;}
+.btn-action{display:flex;align-items:center;gap:5px;padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all .15s;}
+.btn-action:hover{border-color:var(--text3);color:var(--text);}
+.btn-action.primary{background:var(--green);border-color:var(--green);color:#fff;}
+.btn-action.primary:hover{background:#179066;border-color:#179066;}
+.btn-action .ic{font-size:15px;}
+
+/* Description */
+.desc{font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:24px;}
+
+/* ===== Sidebar ===== */
+.side-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+.side-title{font-size:14px;font-weight:600;margin-bottom:12px;}
+
+/* Leaderboard */
+.lb-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.lb-item:last-child{border-bottom:none;}
+.lb-rank{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.lb-rank.r1{background:linear-gradient(135deg,#f5a623,#ef9f27);color:#1a1a1e;}
+.lb-rank.r2{background:linear-gradient(135deg,#c0c0c0,#a0a0a0);color:#1a1a1e;}
+.lb-rank.r3{background:linear-gradient(135deg,#cd7f32,#b87333);color:#fff;}
+.lb-rank.rx{background:var(--bg3);color:var(--text3);}
+.lb-avatar{width:28px;height:28px;border-radius:50%;background:var(--bg3);flex-shrink:0;}
+.lb-info{flex:1;min-width:0;}
+.lb-name{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lb-amt{font-size:11px;color:var(--accent);}
+
+/* ===== Modal Overlay ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-mask.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid #3a3a3a;border-radius:var(--radius-lg);width:min(520px,92vw);max-height:85vh;overflow-y:auto;position:relative;animation:modalIn .3s ease-out;}
+@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(10px);}to{opacity:1;transform:scale(1) translateY(0);}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0;}
+.modal-title{font-size:17px;font-weight:600;}
+.modal-close{width:28px;height:28px;border-radius:50%;border:none;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.modal-close:hover{background:var(--border);color:var(--text);}
+.modal-body{padding:16px 20px 20px;}
+
+/* ===== Gift Cards ===== */
+.gift-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
+@media(max-width:480px){.gift-grid{grid-template-columns:repeat(2,1fr);}}
+.gift-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;padding:14px 12px;cursor:pointer;transition:border-color .2s;position:relative;}
+.gift-card:hover{border-color:#444;}
+.gift-card.selected{border-color:var(--green);}
+.gc-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.gc-name{font-size:13px;font-weight:600;color:var(--text);}
+.gc-badge{font-size:9px;padding:2px 5px;border-radius:3px;font-weight:500;}
+.gc-desc{font-size:10px;color:var(--text3);margin-bottom:2px;}
+.gc-price{font-size:10px;color:var(--text3);}
+.gc-num{font-size:28px;font-weight:700;margin:4px 0 2px;}
+.gc-progress{font-size:9px;color:var(--text3);margin-bottom:8px;}
+.gc-note{font-size:9px;color:#444;line-height:1.4;margin-bottom:10px;min-height:26px;}
+.gc-btn{width:100%;border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s;}
+.gc-btn:hover{opacity:.88;}
+.gc-hot{position:absolute;top:-7px;right:-4px;background:var(--accent);color:#1a1a1e;font-size:8px;padding:2px 5px;border-radius:3px;font-weight:600;}
+
+/* Tip Options Row */
+.tip-options{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:10px;}
+.tip-options label{font-size:12px;color:var(--text2);white-space:nowrap;}
+.toggle-switch{position:relative;width:36px;height:20px;background:var(--border);border-radius:10px;cursor:pointer;transition:background .2s;}
+.toggle-switch.on{background:var(--green);}
+.toggle-switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;}
+.toggle-switch.on::after{transform:translateX(16px);}
+.msg-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);outline:none;}
+.msg-input::placeholder{color:var(--text3);}
+
+/* Disclaimer */
+.disclaimer{text-align:center;font-size:9px;color:#333;line-height:1.5;}
+
+/* Points display in modal header */
+.points-in-modal{display:flex;align-items:center;gap:4px;background:var(--bg3);padding:4px 12px;border-radius:12px;font-size:12px;}
+.points-in-modal .lbl{color:var(--text3);}
+.points-in-modal .val{color:var(--accent);font-weight:600;}
+
+/* ===== Toast System ===== */
+.toast-container{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:max-content;max-width:420px;}
+.toast{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 18px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,.45);animation:toastIn .35s ease-out;pointer-events:auto;white-space:nowrap;}
+.toast.out{animation:toastOut .3s ease-out forwards;}
+@keyframes toastIn{from{opacity:0;transform:translateY(-12px);}to{opacity:1;transform:translateY(0);}}
+@keyframes toastOut{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(-12px);}}
+.toast-icon{flex-shrink:0;}
+.toast-body{min-width:0;}
+.toast-title{font-size:13px;font-weight:600;}
+.toast-sub{font-size:11px;margin-top:1px;}
+.toast-actions{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.toast-btn{padding:4px 12px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;border:none;transition:background .2s;}
+.toast-count{font-size:10px;white-space:nowrap;}
+/* Toast types */
+.toast-success{border-color:var(--green);}.toast-success .toast-title{color:var(--green);}.toast-success .toast-sub{color:#5a9a78;}.toast-success .toast-btn{background:var(--green);color:#fff;}.toast-success .toast-count{color:#5a9a78;}.toast-success .toast-count b{color:var(--green);}
+.toast-warn{border-color:#993C1D;}.toast-warn .toast-title{color:#F0997B;}.toast-warn .toast-sub{color:#c98a6a;}.toast-warn .toast-btn{background:#993C1D;color:#fff;}.toast-warn .toast-count{color:#993C1D;}.toast-warn .toast-count b{color:#F0997B;}
+.toast-error{border-color:#E24B4A;}.toast-error .toast-title{color:#E24B4A;}.toast-error .toast-sub{color:#b86a69;}.toast-error .toast-btn{background:#E24B4A;color:#fff;}
+.toast-info{border-color:#185FA5;}.toast-info .toast-title{color:#378ADD;}.toast-info .toast-sub{color:#6a9fd4;}
+
+/* ===== Recharge Page (in modal) ===== */
+.rech-user{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:16px;background:var(--bg3);border-radius:12px;}
+.rech-avatar{width:48px;height:48px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;}
+.rech-info h4{font-size:14px;font-weight:600;}
+.rech-info p{font-size:11px;color:var(--text3);}
+.rech-balance{margin-left:auto;text-align:right;}
+.rech-balance .label{font-size:11px;color:var(--text3);}
+.rech-balance .val{font-size:20px;font-weight:700;color:var(--accent);}
+.rech-balance .unit{font-size:12px;color:var(--text3);}
+.rech-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:520px){.rech-grid{grid-template-columns:repeat(2,1fr);}}
+.rech-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;position:relative;transition:border-color .2s;}
+.rech-card:hover{border-color:#555;}
+.rech-card.selected{border-color:var(--accent);}
+.rc-price{font-size:26px;font-weight:700;margin:4px 0 2px;}
+.rc-unit{font-size:12px;color:var(--text3);}
+.rc-points{font-size:10px;color:var(--text3);margin-top:4px;}
+.rc-discount{position:absolute;top:-7px;right:-4px;background:var(--coral);color:#fff;font-size:8px;padding:2px 5px;border-radius:3px;font-weight:600;}
+.rc-rec{position:absolute;top:-7px;right:-4px;background:var(--accent);color:#1a1a1e;font-size:8px;padding:2px 5px;border-radius:3px;font-weight:600;}
+.pay-summary{background:#252018;border:1px solid #854F0B;border-radius:10px;padding:14px;margin-bottom:14px;}
+.ps-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.ps-row:last-child{margin-bottom:0;}
+.ps-k{font-size:11px;color:#888;}
+.ps-v{font-size:11px;color:#888;}
+.ps-total{font-size:18px;font-weight:700;color:var(--accent);}
+.btn-pay{width:100%;background:linear-gradient(135deg,var(--accent),#ef9f27);color:#1a1a1e;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.btn-pay:hover{opacity:.9;}
+.btn-back{text-align:center;display:block;margin-top:10px;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;}
+
+/* Paying state */
+.paying-state{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:340px;}
+.paying-state.show{display:flex;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ===== History Table ===== */
+.hist-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.hist-filter{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--text2);cursor:pointer;outline:none;}
+.hist-table{width:100%;border-collapse:collapse;font-size:12px;}
+.hist-table th{background:var(--bg3);color:var(--text2);font-weight:600;padding:9px 10px;text-align:left;border-bottom:1px solid var(--border);font-size:11px;}
+.hist-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text);}
+.hist-table tr:hover td{background:rgba(255,255,255,.02);}
+.hist-pager{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-size:11px;color:var(--text3);}
+.hist-pager button{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;}
+.hist-pager button:hover{border-color:var(--text3);}
+
+/* ===== Tip Animation (floating particles) ===== */
+.tip-animation{position:fixed;inset:0;pointer-events:none;z-index:150;display:none;}
+.tip-animation.active{display:block;}
+.particle{position:absolute;font-size:24px;animation:floatUp 1.5s ease-out forwards;}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1);}100%{opacity:0;transform:translateY(-120px) scale(1.5);}}
+
+/* ===== Side nav icons ===== */
+.side-nav{position:fixed;left:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;z-index:50;}
+.nav-item{width:40px;height:40px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:16px;transition:all .15s;}
+.nav-item:hover{color:var(--text);border-color:var(--text3);}
+.nav-item.active{color:var(--accent);border-color:var(--accent);}
+
+/* Footer note */
+.footer-note{text-align:center;font-size:10px;color:#333;margin-top:30px;padding:16px 0;}
+</style>
+</head>
+<body>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Tip Animation Layer -->
+<div class="tip-animation" id="tipAnimation"></div>
+
+<!-- Side Nav -->
+<div class="side-nav">
+  <div class="nav-item active" title="首页">🏠</div>
+  <div class="nav-item" title="推荐">🔥</div>
+  <div class="nav-item" title="创作">✏️</div>
+  <div class="nav-item" title="消息">💬</div>
+  <div class="nav-item" onclick="openHistory()" title="记录">📋</div>
+</div>
+
+<div class="app">
+  <div class="main">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <span class="logo">灵芽</span>
+        <input class="search" placeholder="搜索发现更多灵感">
+      </div>
+      <div class="header-right">
+        <span class="h-btn">🎓 校园</span>
+        <span class="h-btn">📹 发布</span>
+        <span class="points-pill"><span class="lbl">✦</span><span class="num" id="headerPoints">9776</span> 积分</span>
+        <span class="h-btn">💬 消息</span>
+        <span class="h-btn">👤</span>
+      </div>
+    </div>
+
+    <!-- Video Player -->
+    <div class="player-wrap" id="playerWrap">
+      <img class="video-poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%233a3020'/%3E%3Cstop offset='100%25' stop-color='%231a1510'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='800' height='450'/%3E%3Ctext x='400' y='220' text-anchor='middle' fill='%23f5a623' font-size='48' opacity='.15'%3EBRONZE GUARDIAN%3C/text%3E%3C/svg%3E" alt="视频封面">
+      <div class="play-overlay" id="playOverlay" onclick="togglePlay()">
+        <div class="play-btn">▶</div>
+      </div>
+      <div class="player-controls">
+        <button class="ctrl-btn" onclick="togglePlay()" id="ctrlPlay">▶</button>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <span class="time-label" id="timeLabel">00:03 / 03:55</span>
+        <span class="quality-tag">1080P</span>
+        <button class="ctrl-btn">倍速</button>
+        <button class="ctrl-btn">🔊</button>
+        <button class="ctrl-btn">⛶</button>
+        <button class="ctrl-btn">⤢</button>
+      </div>
+      <!-- Player success toast -->
+      <div class="player-toast" id="playerToast">
+        <div class="pt-inner" id="playerToastText">赠送成功！已赠送10积分，感谢您的支持！</div>
+      </div>
+    </div>
+
+    <!-- Video Info -->
+    <div class="video-info">
+      <h1 class="v-title">沙丘未来科幻影片《BRONZE GUARDIAN》</h1>
+      <div class="v-meta">
+        <span>📺 356 播放</span>
+        <span>📅 2026-08-17 12:04:14</span>
+        <span>📍 陕西</span>
+        <span>⚡️ 操作路径使用了生成式AI</span>
+        <span>🏷️ 非黄鼠狼</span>
+      </div>
+      <div class="author-row">
+        <div class="author">
+          <div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:16px;">🐱</div>
+          <div>
+            <div class="author-name">猫大人爱睡大觉</div>
+            <div class="author-stats">18 粉丝 · 15 作品</div>
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn-action primary" onclick="openTipModal()">🎁 赠币</button>
+          <button class="btn-action" onclick="likeVideo()">❤️ 9 赞</button>
+          <button class="btn-action">↗ 转发</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Follow / DM -->
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button class="btn-action" style="flex:1;justify-content:center;" id="followBtn" onclick="toggleFollow()">+ 关注</button>
+      <button class="btn-action" style="flex:1;justify-content:center;">✉️ 私信</button>
+    </div>
+
+    <!-- Description -->
+    <div class="desc">
+      本片联合 ASTORIE.AI 创作，以未来、科幻、青铜器、兵马俑作为灵感源。全片动画镜头、脚本均由接一人在Seedance2.5完成。本片其他环节与全球各地的艺术家共同协作。如果你也喜欢独特、有趣、有审美表达的内容，请关注俺~ Director: Liu ShuwenProduced by: AST ORIE.AISubtitle Timing, FIViolin Performance, Tang YunMusic Score: AShou, papawPaopaoVoice Talent: Mike CFoley. Liu Yans...
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="side-card">
+      <div class="side-title">创作思路</div>
+      <p style="font-size:12px;color:var(--text2);line-height:1.6;">全流程在seedance2.5中制作</p>
+    </div>
+    <div class="side-card">
+      <div class="side-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>打赏排行榜</span>
+        <span style="font-size:10px;color:var(--text3);cursor:pointer;" onclick="openHistory()">查看全部 →</span>
+      </div>
+      <div id="leaderboard"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TIP MODAL ========== -->
+<div class="modal-mask" id="tipModal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">赠送积分</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="points-in-modal"><span class="lbl">+我的积分</span><span class="val" id="modalPoints">9776</span></div>
+        <button class="modal-close" onclick="closeTipModal()">×</button>
+      </div>
+    </div>
+    <div class="modal-body" id="tipBody">
+      <!-- Options row: anonymous + message -->
+      <div class="tip-options">
+        <label>匿名打赏</label>
+        <div class="toggle-switch" id="anonToggle" onclick="toggleAnon()"></div>
+        <input class="msg-input" id="tipMsg" placeholder="给创作者留言（选填）" maxlength="50">
+      </div>
+      <!-- Gift cards -->
+      <div class="gift-grid" id="giftGrid"></div>
+      <div class="disclaimer">致歉说明：赠送的积分将直接奖励给创作者账户，一经送出不可撤回。<br>温馨提示：赠送积分后将直接显示在作品页，一经赠送不可撤回。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== RECHARGE MODAL ========== -->
+<div class="modal-mask" id="rechargeModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-head">
+      <span class="modal-title">积分余额</span>
+      <button class="modal-close" onclick="closeRecharge()">×</button>
+    </div>
+    <div class="modal-body" id="rechargeBody">
+      <div class="rech-user">
+        <div class="rech-avatar">🐱</div>
+        <div class="rech-info">
+          <h4>腾讯网友</h4>
+          <p>ID:892462_1_P</p>
+        </div>
+        <div class="rech-balance">
+          <div class="label">积分余额</div>
+          <div><span class="val" id="rchBalance">0</span> <span class="unit">✦</span></div>
+        </div>
+      </div>
+      <div class="rech-grid" id="rechGrid"></div>
+      <div class="pay-summary">
+        <div class="ps-row"><span class="ps-k" style="color:var(--accent);font-weight:600;">支付方式</span><span class="ps-v">微信支付</span></div>
+        <div class="ps-row"><span class="ps-k">应付金额</span><span class="ps-total" id="payTotal">¥0.01</span></div>
+      </div>
+      <button class="btn-pay" onclick="doPay()">确认支付</button>
+      <span class="btn-back" onclick="backToTip()">返回打赏</span>
+      <!-- Paying state -->
+      <div class="paying-state" id="payingState">
+        <div class="spinner"></div>
+        <div style="color:#ccc;font-size:14px;margin-top:16px;">正在调起微信支付...</div>
+        <div style="color:#555;font-size:11px;margin-top:6px;">请勿关闭页面</div>
+        <button class="btn-back" style="margin-top:20px;" onclick="cancelPay()">取消支付</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== HISTORY MODAL ========== -->
+<div class="modal-mask" id="historyModal">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-head">
+      <span class="modal-title">积分使用记录</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:12px;color:var(--text3);">个人消费: <b style="color:var(--text);" id="histTotal">228</b></span>
+        <button class="modal-close" onclick="closeHistory()">×</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="hist-filters">
+        <select class="hist-filter"><option>项目（创作者）</option><option>默认(AI联社)</option></select>
+        <select class="hist-filter"><option>使用者（支出）</option><option>全部</option></select>
+        <select class="hist-filter"><option>功能（模型）</option><option>全部</option></select>
+        <input type="date" class="hist-filter" value="2026-08-01">
+        <span style="font-size:11px;color:var(--text3);align-self:center;">—</span>
+        <input type="date" class="hist-filter" value="2026-09-01">
+      </div>
+      <table class="hist-table" id="histTable">
+        <thead><tr><th>项目（创作者）</th><th>功能（模型）</th><th>使用者</th><th>日期</th><th>使用积分</th></tr></thead>
+        <tbody id="histBody"></tbody>
+      </table>
+      <div class="hist-pager">
+        <span>50 条/页</span>
+        <div style="display:flex;gap:6px;">
+          <button>‹</button><button style="background:var(--bg3);border-color:var(--text3);">1</button><button>›</button>
+        </div>
+        <button class="btn-action" style="padding:6px 20px;" onclick="closeHistory()">确定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== STATE ====================
+const S = {
+  points: 9776,
+  isPlaying: false,
+  isLocked: false,
+  pendingGift: null,
+  selectedGift: null,
+  selectedRch: null,
+  isAnonymous: false,
+  tipMsg: '',
+  lastClick: 0,
+  history: [],
+  leaderboard: []
+};
+
+// Gift definitions
+const GIFTS = [
+  {id:'encourage',name:'鼓励',desc:'小小鼓励',price:'¥0.39',points:10,color:'#1d9e75',bg:'#1a3028',note:'赠予点滴温暖意，门庭雅座，普通用户随手支持',badge:'✓',badgeBg:'#1d9e75'},
+  {id:'love',name:'喜爱',desc:'表达喜爱',price:'¥1.95',points:50,color:'#7F77DD',bg:'#282038',note:'主流大众品位，大部分用户会选择的中等打赏'},
+  {id:'support',name:'力挺',desc:'为你管力挺',price:'¥7.80',points:200,color:'#D85A30',bg:'#382220',note:'属认可、忠实学习型/粉丝支持者选择'},
+  {id:'respect',name:'致敬',desc:'向创作者致敬',price:'¥39.00',points:1000,color:'#f5a623',bg:'#302818',note:'顶级地位、重量认可、超级高价值用户',hot:'最帅选择'}
+];
+
+// Recharge packages
+const RECH_PACKAGES = [
+  {id:'r1',name:'限购一次',price:0.01,points:1000,discount:'直47%',color:'#b8d4e8',bgBtn:'#c5dae8'},
+  {id:'r2',name:'套餐一',price:0.02,points:3000,discount:'',color:'#d4c5e8',bgBtn:'#ddd0e8'},
+  {id:'r3',name:'套餐二',price:0.03,points:5000,discount:'直96%',color:'#e8c5d4',bgBtn:'#eed0dc'},
+  {id:'r4',name:'套餐三',price:0.04,points:7000,discount:'直47%',color:'#e8d4b8',bgBtn:'#eedcc5'}
+];
+
+// Sample history data
+function generateHistory(){
+  const names=['默认（AI联社）','默认（AI联社）'];
+  const funcs=['视频打赏','AI生图|图梦梦 片段5.0 Lite)','AI生图|图梦梦 片段5.0 Lite)','AI生图|图梦梦 片段5.0 Lite)'];
+  const users=['AI阮壮','AI阮壮'];
+  const base = new Date('2026-06-25').getTime();
+  const arr=[];
+  for(let i=0;i<12;i++){
+    const d=new Date(base+i*86400000*(Math.random()*3+1));
+    arr.push({
+      project:names[i%2],
+      func:funcs[Math.min(i,funcs.length-1)],
+      user:users[i%2],
+      date:d.toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(/\//g,'-'),
+      pts:[4,12,6][i%3]
+    });
+  }
+  return arr;
+}
+S.history = generateHistory();
+
+// Leaderboard data
+S.leaderboard = [
+  {rank:1,name:'星辰大海',avatar:'🌟',amt:12800},
+  {rank:2,name:'夜空漫步者',avatar:'🌙',amt:8500},
+  {rank:3,name:'追光者',avatar:'☀️',amt:5200},
+  {rank:4,name:'匿名用户',avatar:'🎭',amt:3100},
+  {rank:5,name:'小确幸',avatar:'🍀',amt:1800},
+];
+
+// ==================== INIT ====================
+function init(){
+  renderGiftGrid();
+  renderRechGrid();
+  renderLeaderboard();
+  renderHistory();
+  updatePointsDisplay();
+}
+
+function renderGiftGrid(){
+  const g=document.getElementById('giftGrid');
+  g.innerHTML=GIFTS.map((gft,i)=>`
+    <div class="gift-card${i===0?' selected':''}" data-id="${gft.id}" data-cost="${gft.points}" onclick="selectGift(this)">
+      ${gft.hot?`<span class="gc-hot">${gft.hot}</span>`:''}
+      <div class="gc-header">
+        <span class="gc-name">${gft.name}</span>
+        ${gft.badge?`<span class="gc-badge" style="background:${gft.badgeBg};color:#fff;">${gft.badge}</span>`:''}
+      </div>
+      <div class="gc-desc">${gft.desc}</div>
+      <div class="gc-price">折合 ${gft.price}</div>
+      <div class="gc-num" style="color:${gft.color}">${gft.points}</div>
+      <div class="gc-num" style="font-size:11px;color:${gft.color};font-weight:400;">积分</div>
+      <div class="gc-progress">${i===0?gft.points+' / '+gft.points+' 积分':'0 / '+gft.points+' 积分'}</div>
+      <div class="gc-note">${gft.note}</div>
+      <button class="gc-btn" style="background:${gft.bg};color:${gft.color};" onclick="handleTip(event,${gft.points},'${gft.name}')">赠送</button>
+    </div>
+  `).join('');
+  S.selectedGift=GIFTS[0];
+}
+
+function renderRechGrid(){
+  const g=document.getElementById('rechGrid');
+  g.innerHTML=RECH_PACKAGES.map((pkg,i)=>`
+    <div class="rech-card${i===3?' selected':''}" data-pkg="${pkg.id}" data-price="${pkg.price}" data-pts="${pkg.points}" onclick="selRch(this)">
+      ${pkg.discount?`<span class="rc-discount">${pkg.discount}</span>`:`<span class="rc-rec">${i===3?'高性价比':''}</span>`}
+      <div style="font-size:10px;color:var(--text3);">${pkg.name}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px;">${(pkg.price/pkg.points*1000).toFixed(3)}积分/元 ${pkg.discount||''}</div>
+      <div class="rc-price" style="color:${pkg.color}">${pkg.price.toFixed(2)}</div>
+      <div class="rc-unit">元</div>
+      <div class="rc-points">✦ ${pkg.points.toLocaleString()} 积分</div>
+      <div style="font-size:9px;color:#444;margin-top:4px;">最多可抵扣${Math.floor(pkg.points*0.39)}元，${23+i}个名额</div>
+    </div>
+  `).join('');
+  S.selectedRch={...RECH_PACKAGES[3]};
+  document.getElementById('payTotal').textContent='¥'+RECH_PACKAGES[3].price.toFixed(2);
+}
+
+function renderLeaderboard(){
+  const el=document.getElementById('leaderboard');
+  el.innerHTML=S.leaderboard.map(l=>{
+    const cls=l.rank<=3?'r'+l.rank:'rx';
+    return `<div class="lb-item">
+      <div class="lb-rank ${cls}">${l.rank}</div>
+      <div class="lb-avatar">${l.avatar}</div>
+      <div class="lb-info"><div class="lb-name">${l.name}</div></div>
+      <div class="lb-amt">✦ ${l.amt.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderHistory(){
+  const tbody=document.getElementById('histBody');
+  tbody.innerHTML=S.history.map(h=>`<tr>
+    <td>${h.project}</td><td>${h.func}</td><td>${h.user}</td><td>${h.date}</td><td style="color:var(--coral);font-weight:600;">${h.pts}</td>
+  </tr>`).join('');
+  document.getElementById('histTotal').textContent=S.history.reduce((s,h)=>s+h.pts,0);
+}
+
+// ==================== POINTS ====================
+function updatePointsDisplay(){
+  document.getElementById('headerPoints').textContent=S.points.toLocaleString();
+  document.getElementById('modalPoints').textContent=S.points.toLocaleString();
+  document.getElementById('rchBalance').textContent=S.points.toLocaleString();
+}
+
+function animatePoints(from,to){
+  const el=document.getElementById('headerPoints');
+  const start=Date.now();const dur=400;
+  function tick(){
+    const p=Math.min(1,(Date.now()-start)/dur);
+    el.textContent=Math.round(from+(to-from)*p).toLocaleString();
+    if(p<1) requestAnimationFrame(tick); else el.textContent=to.toLocaleString();
+  }
+  tick();
+}
+
+// ==================== VIDEO PLAYER ====================
+let playInterval=null;
+function togglePlay(){
+  S.isPlaying=!S.isPlaying;
+  document.getElementById('playOverlay').style.display=S.isPlaying?'none':'flex';
+  document.getElementById('ctrlPlay').textContent=S.isPlaying?'⏸':'▶';
+  if(S.isPlaying){
+    let pct=8;
+    playInterval=setInterval(()=>{
+      pct+=0.15;if(pct>100){pct=100;clearInterval(playInterval);S.isPlaying=false;}
+      document.getElementById('progressFill').style.width=pct+'%';
+      const s=Math.floor(pct*3.55/100),m=Math.floor(s/60),sec=s%60;
+      document.getElementById('timeLabel').textContent=`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')} / 03:55`;
+    },150);
+  }else{
+    clearInterval(playInterval);
+  }
+}
+
+// ==================== TIP FLOW ====================
+function openTipModal(){
+  document.getElementById('tipModal').classList.add('open');
+  S.selectedGift=GIFTS[0];
+  document.querySelectorAll('.gift-card').forEach(c=>c.classList.remove('selected'));
+  document.querySelector('.gift-card[data-id="encourage"]').classList.add('selected');
+}
+function closeTipModal(){document.getElementById('tipModal').classList.remove('open');}
+
+function selectGift(el){
+  document.querySelectorAll('.gift-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  S.selectedGift=GIFTS.find(g=>g.id===el.dataset.id);
+}
+
+function toggleAnon(){
+  S.isAnonymous=!S.isAnonymous;
+  document.getElementById('anonToggle').classList.toggle('on',S.isAnonymous);
+}
+
+function handleTip(e,cost,name){
+  e.stopPropagation();
+  const now=Date.now();if(now-S.lastClick<350)return;S.lastClick=now;
+  if(S.isLocked)return;
+
+  // Validate
+  if(S.points<cost){
+    S.pendingGift={cost,name,msg:document.getElementById('tipMsg').value,anon:S.isAnonymous};
+    showToast('warn','积分不足','您的积分余额不足，可购买积分之后赠送',true,cost-S.points);
+    return;
+  }
+
+  // Execute tip
+  doTip(cost,name);
+}
+
+function doTip(cost,name){
+  S.isLocked=true;
+  const oldPts=S.points;
+  S.points-=cost;
+  animatePoints(oldPts,S.points);
+
+  // Add to history
+  const msg=S.pendingGift?.msg||document.getElementById('tipMsg').value||'';
+  S.history.unshift({
+    project:'默认（AI联社）',
+    func:'视频打赏',
+    user:'AI阮壮',
+    date:new Date().toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).replace(/\//g,'-'),
+    pts:cost
+  });
+
+  // Show player toast
+  showPlayerToast(`赠送成功！已赠送${cost}积分，感谢您的支持！`);
+
+  // Particle animation
+  spawnParticles();
+
+  // Update leaderboard
+  updateLeaderboard(name,cost);
+
+  setTimeout(()=>{S.isLocked=false;closeTipModal();},600);
+}
+
+// ==================== TOAST SYSTEM ====================
+let toastQueue=[];
+function showToast(type,title,sub,withAction,needAmt){
+  const container=document.getElementById('toastContainer');
+  const toast=document.createElement('div');
+  toast.className=`toast toast-${type}`;
+  const iconMap={
+    success:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1a3a28" stroke="'+(type==='success'?'#1d9e75':type==='warn'?'#D85A30':'#E24B4A')+'" stroke-width="1.5"/><path d="M8 12l3 3 5-6" stroke="'+(type==='success'?'#1d9e75':type==='warn'?'#D85A30':'#E24B4A')+'" stroke-width="2" stroke-linecap="round"/></svg>',
+    warn:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#D85A30" stroke-width="2"/><path d="M12 7v5M12 16v1" stroke="#D85A30" stroke-width="2" stroke-linecap="round"/></svg>',
+    error:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#E24B4A" stroke-width="2"/><path d="M15 9l-6 6M9 9l6 6" stroke="#E24B4A" stroke-width="2" stroke-linecap="round"/></svg>',
+    info:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#378ADD" stroke-width="2"/><path d="M12 7v6M12 16v1" stroke="#378ADD" stroke-width="2" stroke-linecap="round"/></svg>'
+  };
+
+  let actionHtml='';
+  if(withAction){
+    actionHtml=`<div class="toast-actions">
+      <button class="toast-btn" onclick="goRechargeFromToast()">立即充值</button>
+      <span class="toast-count"><b id="toastCd">3</b> 秒后跳转充值</span>
+    </div>`;
+  }
+
+  toast.innerHTML=`
+    <div class="toast-icon">${iconMap[type]||iconMap.info}</div>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      <div class="toast-sub">${sub}${needAmt!==undefined?'<br>还需 <b style="color:'+type==='warn'?'#F0997B':'inherit">'+needAmt+'</b> 积分':''}</div>
+      ${actionHtml}
+    </div>`;
+  container.appendChild(toast);
+
+  if(withAction){
+    let cd=3;
+    const cdEl=toast.querySelector('#toastCd');
+    const timer=setInterval(()=>{
+      cd--;
+      if(cd>0&&cdEl)cdEl.textContent=cd;
+      else{clearInterval(timer);goRechargeFromToast();}
+    },1000);
+    toast._timer=timer;
+  }else{
+    setTimeout(()=>removeToast(toast),3200);
+  }
+}
+
+function removeToast(toast){
+  if(toast._timer)clearInterval(toast._timer);
+  toast.classList.add('out');
+  setTimeout(()=>{if(toast.parentNode)toast.parentNode.removeChild(toast);},300);
+}
+
+function showPlayerToast(text){
+  const t=document.getElementById('playerToast');
+  document.getElementById('playerToastText').textContent=text;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// ==================== PARTICLE ANIMATION ====================
+function spawnParticles(){
+  const layer=document.getElementById('tipAnimation');
+  layer.classList.add('active');
+  layer.innerHTML='';
+  const emojis=['✦','⭐','💫','🎉','✨','🎁'];
+  const rect=document.getElementById('playerWrap').getBoundingClientRect();
+  for(let i=0;i<12;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    p.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    p.style.left=(rect.left+rect.width*0.3+Math.random()*rect.width*0.4)+'px';
+    p.style.top=(rect.top+rect.height*0.4)+'px';
+    p.style.animationDuration=(1+Math.random())+'s';
+    layer.appendChild(p);
+  }
+  setTimeout(()=>{layer.classList.remove('active');layer.innerHTML='';},1800);
+}
+
+// ==================== LEADERBOARD UPDATE ====================
+function updateLeaderboard(giftName,pts){
+  const existing=S.leaderboard.find(l=>l.name==='我');
+  if(existing)existing.amt+=pts;
+  else S.leaderboard.push({rank:0,name:'我',avatar:'😊',amt:pts});
+  S.leaderboard.sort((a,b)=>b.amt-a.amt);
+  S.leaderboard.forEach((l,i)=>l.rank=i+1);
+  S.leaderboard=S.leaderboard.slice(0,5);
+  renderLeaderboard();
+}
+
+// ==================== RECHARGE FLOW ====================
+function goRechargeFromToast(){
+  // Remove all toasts
+  document.querySelectorAll('.toast').forEach(t=>removeToast(t));
+  closeTipModal();
+  openRecharge();
+}
+
+function openRecharge(){
+  document.getElementById('rechargeModal').classList.add('open');
+  document.getElementById('rechargeBody').querySelector('.rech-user').style.display='';
+  document.getElementById('rechargeBody').querySelector('.rech-grid').parentElement.style.display='';
+  document.getElementById('rechargeBody').querySelector('.pay-summary').style.display='';
+  document.getElementById('rechargeBody').querySelector('.btn-pay').style.display='';
+  document.getElementById('rechargeBody').querySelector('.btn-back').style.display='';
+  document.getElementById('payingState').classList.remove('show');
+
+  // Smart recommend
+  if(S.pendingGift){
+    const need=S.pendingGift.cost-S.points;
+    const pkg=RECH_PACKAGES.find(p=>p.points>=need)||RECH_PACKAGES[3];
+    const el=document.querySelector(`.rech-card[data-pkg="${pkg.id}"]`);
+    if(el) selRch(el);
+  }
+}
+function closeRecharge(){document.getElementById('rechargeModal').classList.remove('open');}
+function backToTip(){closeRecharge();setTimeout(openTipModal,200);}
+
+function selRch(el){
+  document.querySelectorAll('.rech-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  const pkg=RECH_PACKAGES.find(p=>p.id===el.dataset.pkg);
+  S.selectedRch={...pkg};
+  document.getElementById('payTotal').textContent='¥'+pkg.price.toFixed(2);
+}
+
+function doPay(){
+  if(!S.selectedRch){showToast('error','请选择套餐','请先选择一个充值套餐');return;}
+  S.isLocked=true;
+  // Show paying state
+  document.getElementById('rechargeBody').querySelector('.rech-user').style.display='none';
+  document.getElementById('rechargeBody').querySelector('.rech-grid').parentElement.style.display='none';
+  document.getElementById('rechargeBody').querySelector('.pay-summary').style.display='none';
+  document.getElementById('rechargeBody').querySelector('.btn-pay').style.display='none';
+  document.getElementById('rechargeBody').querySelector('.btn-back').style.display='none';
+  document.getElementById('payingState').classList.add('show');
+
+  // Simulate payment
+  setTimeout(()=>{
+    if(Math.random()>0.15){
+      // Success
+      const oldPts=S.points;
+      S.points+=S.selectedRch.points;
+      animatePoints(oldPts,S.points);
+
+      // If there was a pending gift, auto-execute
+      if(S.pendingGift){
+        const giftName=S.pendingGift.name;
+        setTimeout(()=>{
+          doTip(S.pendingGift.cost,S.pendingGift.name);
+          S.pendingGift=null;
+          closeRecharge();
+          showToast('success','充值并打赏成功！','已自动完成「'+(giftName||'')+'」的赠送');
+        },800);
+      }else{
+        closeRecharge();
+        showToast('success','充值成功！','已获得 '+S.selectedRch.points.toLocaleString()+" 积分，当前余额 "+S.points.toLocaleString());
+      }
+    }else{
+      // Fail
+      const errs=[
+        ['支付失败','网络连接异常，请检查网络后重试'],
+        ['支付已取消','您已取消本次支付'],
+        ['支付超时','请求超时，请重试']
+      ];
+      const pick=errs[Math.floor(Math.random()*errs.length)];
+      document.getElementById('payingState').classList.remove('show');
+      document.getElementById('rechargeBody').querySelector('.rech-user').style.display='';
+      document.getElementById('rechargeBody').querySelector('.rech-grid').parentElement.style.display='';
+      document.getElementById('rechargeBody').querySelector('.pay-summary').style.display='';
+      document.getElementById('rechargeBody').querySelector('.btn-pay').style.display='';
+      document.getElementById('rechargeBody').querySelector('.btn-back').style.display='';
+      showToast('error',pick[0],pick[1]);
+    }
+    S.isLocked=false;
+  },2500);
+}
+
+function cancelPay(){
+  S.isLocked=false;
+  document.getElementById('payingState').classList.remove('show');
+  document.getElementById('rechargeBody').querySelector('.rech-user').style.display='';
+  document.getElementById('rechargeBody').querySelector('.rech-grid').parentElement.style.display='';
+  document.getElementById('rechargeBody').querySelector('.pay-summary').style.display='';
+  document.getElementById('rechargeBody').querySelector('.btn-pay').style.display='';
+  document.getElementById('rechargeBody').querySelector('.btn-back').style.display='';
+  showToast('info','支付已取消','您可以稍后继续完成支付');
+}
+
+// ==================== HISTORY ====================
+function openHistory(){document.getElementById('historyModal').classList.add('open');renderHistory();}
+function closeHistory(){document.getElementById('historyModal').classList.remove('open');}
+
+// ==================== MISC ====================
+function likeVideo(){showToast('success','点赞成功','感谢您的喜欢 ❤️');}
+function toggleFollow(){const btn=document.getElementById('followBtn');if(btn.textContent.includes('+')){btn.textContent='✓ 已关注';btn.style.background='var(--green)';btn.style.borderColor='var(--green)';btn.style.color='#fff';}else{btn.textContent='+ 关注';btn.style.background='';btn.style.borderColor='';btn.style.color='';}}
+
+// Init
+init();
+</script>
+</body>
+</html>
